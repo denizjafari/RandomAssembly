@@ -101,23 +101,41 @@ requests>=2.26.0
 #   - torch (used by TimesFM if available)
 
 # ============================================================
-# JUPYTER SUPPORT
+# JUPYTER SUPPORT (OPTIONAL)
 # ============================================================
-ipykernel>=6.0.0
-jupyterlab>=3.0.0
-
-# ============================================================
-# OPTIONAL: GPU ACCELERATION
-# ============================================================
-# Uncomment if you have CUDA-capable GPU:
-# torch>=2.0.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
+# For interactive notebooks and development
+# ipykernel>=6.0.0
+# jupyterlab>=3.0.0
 
 # ============================================================
 # INSTALLATION NOTES
 # ============================================================
-# Install all packages:
-#   pip install -r requirements.txt
+# Using uv (recommended):
+#   uv pip install -r requirements.txt
+#   uv add braindecode moabb
 #
-# For GPU support, install PyTorch with CUDA first:
-#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# Using pip:
 #   pip install -r requirements.txt
+#   pip install braindecode moabb
+#
+# Optional - TimesFM (x86_64 only):
+#   uv add "git+https://github.com/google-research/timesfm.git"
+#   OR: pip install git+https://github.com/google-research/timesfm.git
+#
+# GPU Support (optional, for CUDA-capable GPUs):
+#   Install PyTorch with CUDA first:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#   Then install other requirements as above
+#
+# ============================================================
+# QUICK START
+# ============================================================
+# Minimum required packages (works on all platforms):
+#   numpy, pandas, scipy, matplotlib, seaborn, scikit-learn
+#   mne, braindecode, moabb
+#
+# The script will automatically:
+#   - Detect your platform (Apple Silicon vs x86_64)
+#   - Use TimesFM if available and compatible
+#   - Fall back to scikit-learn methods on Apple Silicon
+#   - Handle headless servers automatically
