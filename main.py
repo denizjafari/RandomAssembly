@@ -18,11 +18,21 @@ Note: TimesFM requires installation from GitHub:
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
+import os
+import platform
 import warnings
 warnings.filterwarnings('ignore')
+
+# Configure matplotlib for headless servers (no display)
+# Must be done BEFORE importing pyplot
+import matplotlib
+if os.environ.get('DISPLAY') is None and platform.system() != 'Windows':
+    # Use non-interactive backend for headless servers
+    matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Try importing braindecode - if not available, provide installation instructions
 try:
@@ -32,19 +42,95 @@ except ImportError:
     BRAINDECODE_AVAILABLE = False
     print("Warning: braindecode not installed. Install with: uv add braindecode (or pip install braindecode)")
 
+# Detect platform architecture
+def detect_platform():
+    """Detect the platform and architecture."""
+    system = platform.system()
+    machine = platform.machine()
+    processor = platform.processor()
+    
+    is_apple_silicon = (
+        system == 'Darwin' and 
+        (machine == 'arm64' or 'arm' in processor.lower() or 'Apple' in processor)
+    )
+    is_linux = system == 'Linux'
+    is_windows = system == 'Windows'
+    
+    return {
+        'system': system,
+        'machine': machine,
+        'processor': processor,
+        'is_apple_silicon': is_apple_silicon,
+        'is_linux': is_linux,
+        'is_windows': is_windows,
+        'is_arm': is_apple_silicon or 'arm' in machine.lower()
+    }
+
+PLATFORM_INFO = detect_platform()
+
 # Try importing timesfm - if not available, provide installation instructions
+TIMESFM_AVAILABLE = False
+TIMESFM_COMPATIBLE = False
+
 try:
     import timesfm
     TIMESFM_AVAILABLE = True
+    # Check if TimesFM actually works (might fail on ARM even if installed)
+    if not PLATFORM_INFO['is_arm']:
+        TIMESFM_COMPATIBLE = True
+    else:
+        print("Warning: Detected ARM architecture (Apple Silicon). TimesFM may not work.")
+        print("Attempting to use TimesFM anyway, but it may fail...")
+        # Try to import lingvo to see if it works
+        try:
+            import lingvo
+            TIMESFM_COMPATIBLE = True
+        except ImportError:
+            TIMESFM_COMPATIBLE = False
+            print("Note: TimesFM's lingvo dependency doesn't support ARM. Using fallback methods.")
 except ImportError:
     TIMESFM_AVAILABLE = False
-    print("Warning: timesfm not installed. Install with: uv add \"git+https://github.com/google-research/timesfm.git\"")
-    print("Or with pip: pip install git+https://github.com/google-research/timesfm.git")
-    print("Note: TimesFM does not support ARM architectures (Apple Silicon)")
+    if PLATFORM_INFO['is_arm']:
+        print("Info: TimesFM not installed (ARM architecture detected - not supported).")
+        print("Will use alternative forecasting methods that work on Apple Silicon.")
+    else:
+        print("Warning: timesfm not installed. Install with: uv add \"git+https://github.com/google-research/timesfm.git\"")
+        print("Or with pip: pip install git+https://github.com/google-research/timesfm.git")
+
+# Check if running in headless mode
+if matplotlib.get_backend() == 'Agg':
+    print("Running in headless mode (no display available) - plots will be saved to files only")
 
 # Set style for better plots
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (15, 10)
+
+
+def get_dataset_path():
+    """
+    Get the path where the BCI dataset is stored.
+    
+    Returns:
+    --------
+    path : Path
+        Path to the dataset directory
+    """
+    import os
+    from pathlib import Path
+    
+    # Check MNE_DATA_PATH environment variable first
+    mne_data_path = os.environ.get('MNE_DATA_PATH')
+    if mne_data_path:
+        base_path = Path(mne_data_path)
+    else:
+        # Default location: ~/mne_data
+        base_path = Path.home() / 'mne_data'
+    
+    # MOABB typically stores datasets in a subdirectory
+    # BCI Competition IV dataset is usually in moabb/BCICIV4
+    dataset_path = base_path / 'moabb' / 'BCICIV4'
+    
+    return base_path, dataset_path
 
 
 def load_bci_dataset(subject_ids=None):
@@ -71,6 +157,13 @@ def load_bci_dataset(subject_ids=None):
             "Note: moabb is also required for dataset downloads."
         )
     
+    # Show where data will be stored
+    base_path, dataset_path = get_dataset_path()
+    print(f"\nDataset storage information:")
+    print(f"  - Base data path: {base_path}")
+    print(f"  - Dataset path: {dataset_path}")
+    print(f"  - MNE_DATA_PATH env var: {os.environ.get('MNE_DATA_PATH', 'Not set (using default)')}")
+    
     # Download dataset if not already available
     print("\nDownloading dataset (if not already available)...")
     try:
@@ -82,6 +175,18 @@ def load_bci_dataset(subject_ids=None):
                 "Or: pip install moabb"
             ) from e
         raise
+    
+    # Check if dataset directory exists after download
+    if dataset_path.exists():
+        print(f"\nDataset found at: {dataset_path}")
+        print(f"  - Directory exists: Yes")
+        # List contents if available
+        try:
+            contents = list(dataset_path.iterdir())
+            if contents:
+                print(f"  - Number of items: {len(contents)}")
+        except:
+            pass
     
     # Load dataset
     print(f"\nLoading dataset for subjects: {subject_ids if subject_ids else 'all'}")
@@ -216,7 +321,13 @@ def visualize_eeg_data(raw, data, times, save_path=None):
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"\nFigure saved to: {save_path}")
     
-    plt.show()
+    # Only show plot if display is available
+    try:
+        plt.show()
+    except Exception:
+        print("Note: Display not available - figure saved to file only")
+    finally:
+        plt.close()
 
 
 def prepare_timeseries_for_timesfm(data, times, channel_idx=None, aggregation='mean'):
@@ -271,6 +382,88 @@ def prepare_timeseries_for_timesfm(data, times, channel_idx=None, aggregation='m
     return timeseries
 
 
+def forecast_with_alternative_methods(timeseries, context_len=256, horizon_len=64):
+    """
+    Perform time series forecasting using alternative methods that work on all platforms.
+    
+    Uses statistical and machine learning methods that are compatible with Apple Silicon.
+    
+    Parameters:
+    -----------
+    timeseries : np.ndarray
+        Univariate time series array
+    context_len : int
+        Length of context window to use
+    horizon_len : int
+        Length of forecast horizon
+    
+    Returns:
+    --------
+    forecast : np.ndarray
+        Forecasted values
+    """
+    print("\n" + "=" * 80)
+    print("FORECASTING WITH ALTERNATIVE METHODS (Platform-Compatible)")
+    print("=" * 80)
+    
+    from sklearn.linear_model import LinearRegression
+    from sklearn.preprocessing import StandardScaler
+    
+    # Prepare input
+    if len(timeseries) < context_len:
+        print(f"Warning: Time series length ({len(timeseries)}) is less than context_len ({context_len})")
+        print("Using all available data as context...")
+        context = timeseries
+    else:
+        context = timeseries[-context_len:]
+    
+    print(f"\nUsing context length: {len(context)}")
+    print(f"Forecasting {horizon_len} steps ahead")
+    
+    # Method 1: Simple Linear Regression with lag features
+    print("\nMethod: Linear Regression with lag features")
+    
+    # Create lag features
+    n_lags = min(10, len(context) // 2)  # Use up to 10 lags
+    X = []
+    y = []
+    
+    for i in range(n_lags, len(context)):
+        X.append(context[i-n_lags:i])
+        y.append(context[i])
+    
+    X = np.array(X)
+    y = np.array(y)
+    
+    if len(X) > 0:
+        # Train model
+        model = LinearRegression()
+        model.fit(X, y)
+        
+        # Forecast
+        forecast = []
+        last_window = context[-n_lags:].copy()
+        
+        for _ in range(horizon_len):
+            next_pred = model.predict(last_window.reshape(1, -1))[0]
+            forecast.append(next_pred)
+            # Update window: shift and add prediction
+            last_window = np.roll(last_window, -1)
+            last_window[-1] = next_pred
+        
+        forecast = np.array(forecast)
+        
+        print(f"Forecast completed using Linear Regression")
+        print(f"  - Forecast shape: {forecast.shape}")
+        print(f"  - Forecast mean: {np.mean(forecast):.4f}")
+        print(f"  - Forecast std: {np.std(forecast):.4f}")
+        
+        return forecast
+    else:
+        print("Error: Not enough data for forecasting")
+        return None
+
+
 def forecast_with_timesfm(timeseries, context_len=256, horizon_len=64, freq=0):
     """
     Perform time series forecasting using TimesFM.
@@ -289,16 +482,20 @@ def forecast_with_timesfm(timeseries, context_len=256, horizon_len=64, freq=0):
     Returns:
     --------
     forecast : np.ndarray
-        Forecasted values
+        Forecasted values, or None if TimesFM is not available/compatible
     """
     print("\n" + "=" * 80)
     print("FORECASTING WITH TIMESFM")
     print("=" * 80)
     
-    if not TIMESFM_AVAILABLE:
-        print("\nSkipping TimesFM forecasting - library not available")
-        print("Install with: uv add \"git+https://github.com/google-research/timesfm.git\"")
-        print("Or with pip: pip install git+https://github.com/google-research/timesfm.git")
+    if not TIMESFM_AVAILABLE or not TIMESFM_COMPATIBLE:
+        if PLATFORM_INFO['is_arm']:
+            print("\nTimesFM not compatible with ARM architecture (Apple Silicon)")
+            print("Will use alternative forecasting methods instead.")
+        else:
+            print("\nTimesFM not available or not compatible")
+            print("Install with: uv add \"git+https://github.com/google-research/timesfm.git\"")
+            print("Or with pip: pip install git+https://github.com/google-research/timesfm.git")
         return None
     
     try:
@@ -352,7 +549,10 @@ def forecast_with_timesfm(timeseries, context_len=256, horizon_len=64, freq=0):
         print(f"  - Forecast shape: {point_forecast.shape}")
         print(f"  - Forecast length: {len(point_forecast[0])}")
         
-        return point_forecast[0], experimental_quantile_forecast[0] if experimental_quantile_forecast is not None else None
+        forecast_values = point_forecast[0]
+        quantile_values = experimental_quantile_forecast[0] if experimental_quantile_forecast is not None else None
+        
+        return forecast_values, quantile_values
         
     except Exception as e:
         print(f"\nError during TimesFM forecasting: {str(e)}")
@@ -363,7 +563,7 @@ def forecast_with_timesfm(timeseries, context_len=256, horizon_len=64, freq=0):
         return None, None
 
 
-def visualize_forecast(timeseries, forecast, context_len, horizon_len, save_path=None):
+def visualize_forecast(timeseries, forecast, context_len, horizon_len, forecast_method="TimesFM", save_path=None):
     """
     Visualize the original time series and the forecast.
     
@@ -377,6 +577,8 @@ def visualize_forecast(timeseries, forecast, context_len, horizon_len, save_path
         Length of context window used
     horizon_len : int
         Length of forecast horizon
+    forecast_method : str
+        Name of the forecasting method used
     save_path : str or Path, optional
         Path to save the figure
     """
@@ -395,7 +597,7 @@ def visualize_forecast(timeseries, forecast, context_len, horizon_len, save_path
     ax.plot(time_original, timeseries, label='Original Time Series', alpha=0.7, linewidth=1.5)
     
     # Plot context window used
-    context_start = len(timeseries) - context_len
+    context_start = max(0, len(timeseries) - context_len)
     context_end = len(timeseries)
     ax.axvspan(context_start, context_end, alpha=0.2, color='yellow', label='Context Window')
     
@@ -403,14 +605,14 @@ def visualize_forecast(timeseries, forecast, context_len, horizon_len, save_path
     forecast_start = len(timeseries)
     forecast_end = forecast_start + len(forecast)
     time_forecast = np.arange(forecast_start, forecast_end)
-    ax.plot(time_forecast, forecast, label='TimesFM Forecast', linewidth=2, color='red')
+    ax.plot(time_forecast, forecast, label=f'{forecast_method} Forecast', linewidth=2, color='red')
     
     # Add vertical line separating context and forecast
     ax.axvline(x=context_end, color='black', linestyle='--', linewidth=2, label='Forecast Start')
     
     ax.set_xlabel('Time Point')
     ax.set_ylabel('Amplitude')
-    ax.set_title('Time Series Forecasting with TimesFM')
+    ax.set_title(f'Time Series Forecasting with {forecast_method}')
     ax.legend()
     ax.grid(True, alpha=0.3)
     
@@ -466,7 +668,9 @@ def generate_summary_report(dataset, raw, data, times, timeseries, forecast):
             "Std": f"{np.std(timeseries):.4f}" if timeseries is not None else "N/A"
         },
         "Forecasting": {
-            "Model": "TimesFM (google/timesfm-1.0-200m)",
+            "Platform": f"{PLATFORM_INFO['system']} ({PLATFORM_INFO['machine']})",
+            "TimesFM Compatible": f"{TIMESFM_COMPATIBLE}",
+            "Model": "TimesFM (google/timesfm-1.0-200m)" if TIMESFM_COMPATIBLE else "Alternative (Linear Regression)",
             "Status": "Success" if forecast is not None else "Not available",
             "Forecast length": len(forecast) if forecast is not None else "N/A"
         }
@@ -515,6 +719,22 @@ def main():
     print("BCI COMPETITION IV DATASET 4 - TIMESFM ANALYSIS")
     print("=" * 80)
     
+    # Display platform information
+    print("\n" + "=" * 80)
+    print("PLATFORM INFORMATION")
+    print("=" * 80)
+    print(f"  - System: {PLATFORM_INFO['system']}")
+    print(f"  - Machine: {PLATFORM_INFO['machine']}")
+    print(f"  - Processor: {PLATFORM_INFO['processor']}")
+    print(f"  - Apple Silicon: {PLATFORM_INFO['is_apple_silicon']}")
+    print(f"  - ARM Architecture: {PLATFORM_INFO['is_arm']}")
+    print(f"  - TimesFM Available: {TIMESFM_AVAILABLE}")
+    print(f"  - TimesFM Compatible: {TIMESFM_COMPATIBLE}")
+    
+    if PLATFORM_INFO['is_arm'] and not TIMESFM_COMPATIBLE:
+        print("\n  Note: Running on Apple Silicon - will use alternative forecasting methods")
+        print("  that work on all platforms (Linear Regression with lag features).")
+    
     # Create output directory for figures
     output_dir = Path("output")
     output_dir.mkdir(exist_ok=True)
@@ -537,15 +757,41 @@ def main():
         # Use mean aggregation across channels to create univariate series
         timeseries = prepare_timeseries_for_timesfm(data, times, channel_idx=None, aggregation='mean')
         
-        # Step 5: Forecast with TimesFM
+        # Step 5: Forecast with TimesFM or alternative methods
         # Using context_len=256 and horizon_len=64 (adjust based on your needs)
-        # freq=0 for high frequency data (ECoG is high frequency)
-        forecast, quantile_forecast = forecast_with_timesfm(
-            timeseries, 
-            context_len=256, 
-            horizon_len=64,
-            freq=0  # High frequency (ECoG signals)
-        )
+        forecast = None
+        forecast_method = "None"
+        
+        # Try TimesFM first (if compatible)
+        if TIMESFM_COMPATIBLE:
+            try:
+                forecast_result = forecast_with_timesfm(
+                    timeseries, 
+                    context_len=256, 
+                    horizon_len=64,
+                    freq=0  # High frequency (ECoG signals)
+                )
+                if forecast_result is not None:
+                    if isinstance(forecast_result, tuple):
+                        forecast, quantile_forecast = forecast_result
+                    else:
+                        forecast = forecast_result
+                    if forecast is not None:
+                        forecast_method = "TimesFM"
+            except Exception as e:
+                print(f"\nTimesFM failed: {e}")
+                print("Falling back to alternative methods...")
+                forecast = None
+        
+        # Use alternative methods if TimesFM not available or failed
+        if forecast is None:
+            forecast = forecast_with_alternative_methods(
+                timeseries,
+                context_len=256,
+                horizon_len=64
+            )
+            if forecast is not None:
+                forecast_method = "Linear Regression (Alternative)"
         
         # Step 6: Visualize forecast
         if forecast is not None:
@@ -554,11 +800,23 @@ def main():
                 forecast, 
                 context_len=256, 
                 horizon_len=64,
+                forecast_method=forecast_method,
                 save_path=output_dir / "forecast_visualization.png"
             )
         
         # Step 7: Generate summary report
         generate_summary_report(dataset, raw, data, times, timeseries, forecast)
+        
+        # Display final platform note
+        if PLATFORM_INFO['is_arm'] and not TIMESFM_COMPATIBLE:
+            print("\n" + "=" * 80)
+            print("PLATFORM COMPATIBILITY NOTE")
+            print("=" * 80)
+            print("Running on Apple Silicon - used alternative forecasting methods.")
+            print("For TimesFM support, consider:")
+            print("  1. Using x86_64 emulation (Rosetta 2)")
+            print("  2. Running on a Linux server with x86_64 architecture")
+            print("  3. Using Docker with x86_64 base image")
         
         print("\n" + "=" * 80)
         print("ANALYSIS COMPLETE!")

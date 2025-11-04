@@ -1,5 +1,5 @@
-# Python package requirements for FOMO Workshop Tutorials
-# Covers all 4 tutorials: Data Cleaning, Fine-Tuning, Uncertainty Quantification, Latent Space Analysis
+# Python package requirements for Time Series Forecasting with TimesFM
+# BCI Competition IV Dataset 4 Analysis - Cross-Platform Support
 
 # ============================================================
 # CORE SCIENTIFIC COMPUTING
@@ -7,35 +7,70 @@
 numpy>=1.21.0
 pandas>=1.3.0
 scipy>=1.7.0
+
+# ============================================================
+# NEUROSCIENCE & BRAIN DATA
+# ============================================================
+# MNE - for neuroimaging data processing
 mne>=1.0.0
+
+# Braindecode - for BCI datasets
+# Install with: uv add braindecode
+# Or: pip install braindecode
+
+# MOABB - Mother of All BCI Benchmarks (required by braindecode for dataset downloads)
+# Install with: uv add moabb
+# Or: pip install moabb
 
 # ============================================================
 # MACHINE LEARNING & DEEP LEARNING
 # ============================================================
+# PyTorch - used by TimesFM (if available on x86_64)
+# Also provides tensor operations for alternative methods
 torch>=2.0.0
-transformers>=4.30.0
-datasets>=2.0.0
+
+# Scikit-learn - used for alternative forecasting methods (works on all platforms)
+# Linear Regression with lag features for Apple Silicon compatibility
 scikit-learn>=1.0.0
 
-# Parameter-efficient fine-tuning (Tutorial 2)
+# Transformers - optional, for future extensions
+transformers>=4.30.0
+datasets>=2.0.0
+
+# Parameter-efficient fine-tuning (optional)
 peft>=0.4.0
+
+# ============================================================
+# TIME SERIES FORECASTING
+# ============================================================
+# TimesFM - Google's pretrained time-series foundation model
+# IMPORTANT: Only works on x86_64 architectures (Linux/Windows/Intel Macs)
+# Does NOT support ARM/Apple Silicon due to lingvo dependency
+# 
+# Installation:
+#   With uv: uv add "git+https://github.com/google-research/timesfm.git"
+#   With pip: pip install git+https://github.com/google-research/timesfm.git
+#
+# Note: The script automatically uses alternative methods on Apple Silicon
+#       TimesFM is optional - script works without it using scikit-learn
 
 # ============================================================
 # DIMENSIONALITY REDUCTION & OPTIMIZATION
 # ============================================================
-# UMAP for visualization (Tutorial 4)
+# UMAP for visualization (optional)
 umap-learn>=0.5.3
 
-# Hyperparameter optimization (Tutorial 4)
+# Hyperparameter optimization (optional)
 optuna>=3.0.0
 
 # ============================================================
 # PLOTTING & VISUALIZATION
 # ============================================================
+# Matplotlib - automatically uses Agg backend on headless servers
 matplotlib>=3.4.0
 seaborn>=0.11.0
 
-# For interactive Optuna plots (Tutorial 4)
+# Plotly for interactive plots (optional)
 plotly>=5.0.0
 
 # ============================================================
@@ -48,19 +83,22 @@ tqdm>=4.62.0
 requests>=2.26.0
 
 # ============================================================
-# TIME SERIES & NEUROSCIENCE
+# PLATFORM COMPATIBILITY
 # ============================================================
-# TimesFM - install from GitHub (does not support ARM/Apple Silicon)
-# With uv: uv add "git+https://github.com/google-research/timesfm.git"
-# With pip: pip install git+https://github.com/google-research/timesfm.git
-# Note: Requires lingvo dependency which doesn't support ARM architectures
-
-# Braindecode - for BCI datasets
-# With uv: uv add braindecode
-# With pip: pip install braindecode
-# Note: Requires moabb (Mother of All BCI Benchmarks) for dataset downloads
-# With uv: uv add moabb
-# With pip: pip install moabb
+# This script works on:
+# - x86_64 Linux/Windows servers: Full support with TimesFM (optional)
+# - Apple Silicon (M1/M2/M3): Automatic fallback to scikit-learn methods
+# - Headless servers: Automatic matplotlib backend selection
+#
+# Required for all platforms:
+#   - numpy, pandas, scipy
+#   - matplotlib, seaborn
+#   - scikit-learn (for alternative forecasting)
+#   - mne, braindecode, moabb (for dataset)
+#
+# Optional (x86_64 only):
+#   - timesfm (for foundation model forecasting)
+#   - torch (used by TimesFM if available)
 
 # ============================================================
 # JUPYTER SUPPORT

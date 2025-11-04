@@ -70,10 +70,13 @@ uv pip install git+https://github.com/google-research/timesfm.git
 
 Note: If Option A doesn't work, you can also add it manually to `pyproject.toml` in the dependencies section.
 
-**Note for Apple Silicon users**: 
-- TimesFM will not work on native ARM architecture
-- You may need to use x86_64 emulation (Rosetta 2) or a different environment
-- The script will gracefully handle missing TimesFM and continue with data exploration
+**Platform Compatibility**:
+- **x86_64 (Linux/Windows/Intel Macs)**: Full support, TimesFM works
+- **Apple Silicon (ARM)**: Automatic fallback to alternative forecasting methods
+  - The script detects your platform and uses compatible methods
+  - On Apple Silicon, uses Linear Regression with lag features (works on all platforms)
+  - Data exploration and visualization work on all platforms
+- **Servers**: Works on headless servers (no display needed for file output)
 
 ## Usage
 
@@ -90,13 +93,18 @@ uv run main.py
 ```
 
 The script will:
-1. Download and load the BCI Competition IV Dataset 4
-2. Explore dataset structure (channels, sampling frequency, duration, etc.)
-3. Visualize ECoG signals (time series, power spectral density, channel variability)
-4. Prepare univariate time series for forecasting (aggregate multiple channels)
-5. Perform forecasting using TimesFM (if available)
-6. Visualize forecast results
-7. Generate a comprehensive summary report
+1. Detect your platform (Apple Silicon, Linux, Windows, etc.)
+2. Download and load the BCI Competition IV Dataset 4
+3. Explore dataset structure (channels, sampling frequency, duration, etc.)
+4. Visualize ECoG signals (time series, power spectral density, channel variability)
+5. Prepare univariate time series for forecasting (aggregate multiple channels)
+6. Perform forecasting using:
+   - **TimesFM** (on x86_64 platforms) - Google's foundation model
+   - **Alternative methods** (on Apple Silicon or when TimesFM unavailable) - Linear Regression
+7. Visualize forecast results
+8. Generate a comprehensive summary report
+
+**Note**: The script automatically selects the best forecasting method based on your platform.
 
 ## Output
 
@@ -141,12 +149,20 @@ You can modify the script parameters:
 
 ## Troubleshooting
 
-### TimesFM Installation Issues
+### Platform Compatibility
 
-If TimesFM installation fails:
-- Check if you're on ARM architecture (Apple Silicon)
-- Try using x86_64 emulation
-- The script will continue with data exploration even without TimesFM
+**The script works on all platforms:**
+
+- **x86_64 servers/Linux/Windows**: Full TimesFM support
+- **Apple Silicon (M1/M2/M3)**: Automatic fallback to alternative methods
+  - No TimesFM installation needed
+  - Uses Linear Regression with lag features (works everywhere)
+  - All data exploration features work
+
+**TimesFM Installation (Optional, x86_64 only):**
+- Only needed on x86_64 platforms for foundation model forecasting
+- Not required on Apple Silicon (script uses alternatives automatically)
+- The script will detect your platform and use appropriate methods
 
 ### Dataset Download Issues
 
@@ -154,6 +170,30 @@ The dataset will be automatically downloaded on first run. If download fails:
 - Check internet connection
 - Verify MNE_DATA_PATH environment variable is set correctly
 - Default download location: `~/mne_data`
+
+#### Where is the data stored?
+
+The BCI Competition IV Dataset 4 is stored in:
+
+**Default location:**
+```
+~/mne_data/moabb/BCICIV4
+```
+
+**Custom location:**
+If you set the `MNE_DATA_PATH` environment variable, the data will be stored there instead:
+```bash
+export MNE_DATA_PATH=/path/to/your/data
+```
+
+The script will automatically display the data path when you run it. You can also check programmatically:
+```python
+from main import get_dataset_path
+base_path, dataset_path = get_dataset_path()
+print(f"Data stored at: {dataset_path}")
+```
+
+**Note:** The dataset is typically several GB in size, so make sure you have sufficient disk space.
 
 ### Memory Issues
 
