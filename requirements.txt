@@ -1,0 +1,85 @@
+# Python package requirements for FOMO Workshop Tutorials
+# Covers all 4 tutorials: Data Cleaning, Fine-Tuning, Uncertainty Quantification, Latent Space Analysis
+
+# ============================================================
+# CORE SCIENTIFIC COMPUTING
+# ============================================================
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+mne>=1.0.0
+
+# ============================================================
+# MACHINE LEARNING & DEEP LEARNING
+# ============================================================
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.0.0
+scikit-learn>=1.0.0
+
+# Parameter-efficient fine-tuning (Tutorial 2)
+peft>=0.4.0
+
+# ============================================================
+# DIMENSIONALITY REDUCTION & OPTIMIZATION
+# ============================================================
+# UMAP for visualization (Tutorial 4)
+umap-learn>=0.5.3
+
+# Hyperparameter optimization (Tutorial 4)
+optuna>=3.0.0
+
+# ============================================================
+# PLOTTING & VISUALIZATION
+# ============================================================
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+# For interactive Optuna plots (Tutorial 4)
+plotly>=5.0.0
+
+# ============================================================
+# UTILITIES
+# ============================================================
+# Progress bars
+tqdm>=4.62.0
+
+# HTTP requests for data downloading
+requests>=2.26.0
+
+# ============================================================
+# TIME SERIES & NEUROSCIENCE
+# ============================================================
+# TimesFM - install from GitHub (does not support ARM/Apple Silicon)
+# With uv: uv add "git+https://github.com/google-research/timesfm.git"
+# With pip: pip install git+https://github.com/google-research/timesfm.git
+# Note: Requires lingvo dependency which doesn't support ARM architectures
+
+# Braindecode - for BCI datasets
+# With uv: uv add braindecode
+# With pip: pip install braindecode
+# Note: Requires moabb (Mother of All BCI Benchmarks) for dataset downloads
+# With uv: uv add moabb
+# With pip: pip install moabb
+
+# ============================================================
+# JUPYTER SUPPORT
+# ============================================================
+ipykernel>=6.0.0
+jupyterlab>=3.0.0
+
+# ============================================================
+# OPTIONAL: GPU ACCELERATION
+# ============================================================
+# Uncomment if you have CUDA-capable GPU:
+# torch>=2.0.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
+
+# ============================================================
+# INSTALLATION NOTES
+# ============================================================
+# Install all packages:
+#   pip install -r requirements.txt
+#
+# For GPU support, install PyTorch with CUDA first:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#   pip install -r requirements.txt
